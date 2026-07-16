@@ -1,0 +1,55 @@
+{
+  "event": {
+    "name": "Example Clinic Fundraising Raffle",
+    "date": "2026-07-10",
+    "form_link": ""
+  },
+  "files": {
+    "donations": "inputs/Clinic Fundraising_*.csv",
+    "volunteers": "inputs/volunteer_list.xlsx",
+    "ticket_pricing": "inputs/ticket_pricing.xlsx",
+    "form_responses": "inputs/googleform_results.xlsx",
+    "manual_credits": "inputs/manual_credits.xlsx",
+    "output_directory": "output",
+    "preparation_workbook": "raffle_preparation.xlsx",
+    "validation_workbook": "raffle_validation.xlsx",
+    "results_workbook": "raffle_results.xlsx"
+  },
+  "donation_columns": {
+    "amount": "Donation Amount",
+    "date": "Donation Date",
+    "donor_first": "Supporter First Name",
+    "donor_last": "Supporter Last Name",
+    "donor_email": "Supporter Email",
+    "comment": "Donation Comment",
+    "tickets": ""
+  },
+  "volunteer_columns": {
+    "first": "First",
+    "last": "Last",
+    "nickname": "Nickname",
+    "aliases": "Aliases"
+  },
+  "pricing_columns": {
+    "donation": "Donation",
+    "tickets": "Tickets"
+  },
+  "ticket_estimation": {
+    "method": "piecewise_linear",
+    "rounding_mode": "nearest",
+    "round_to_increment": 1
+  },
+  "form": {
+    "timestamp_columns": ["Timestamp", "Completion time"],
+    "name_columns": ["Your name", "Name"],
+    "code_columns": ["Your ticket code", "Ticket code"],
+    "basket_prefix": "Tickets for:"
+  },
+  "validation": {
+    "use_last_response_per_code": true,
+    "allow_under_allocations": true
+  },
+  "draw": {
+    "allow_multiple_wins": true
+  }
+}
