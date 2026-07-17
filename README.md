@@ -1,8 +1,8 @@
 # Free E-Raffle
 
-This project turns a donation export, volunteer list, ticket-pricing matrix, and Google Forms response export into a validated electronic raffle and a local draw-night presentation.
+This project turns a donation export, volunteer list, ticket-pricing matrix, and Google Forms response export into an electronic raffle and a local draw-night presentation.
 
-It is designed to be locally ran at the event/clinic site by someone who has no knowledge whatsoever of coding.
+It is designed to be locally ran at the event site by someone who has no knowledge whatsoever of coding.
 
 ## The process is divided into four stages:
 
@@ -12,7 +12,6 @@ It is designed to be locally ran at the event/clinic site by someone who has no 
 4. **Present** website that presents the winners from the secret results workbook.
 
 `run_draw.bat` does not read or validate the raw Google Forms export. It reads only `raffle_validation.xlsx`.
-
 The website does not read the validation workbook and does not calculate winners. It reads only `draw_data.js`, which `run_draw.bat` writes from the same data as `raffle_results.xlsx`.
 
 ---
@@ -39,11 +38,12 @@ Everything lives in one folder. There are no subfolders except the `.venv` creat
 ├── Clinic Fundraising_YYYY_MM_DD.csv
 ├── volunteer_list.xlsx
 ├── ticket_pricing.xlsx
-├── googleform_results.xlsx
+├── googleform_results.xlsx (or googleform_results.csv)
 ├── manual_credits.xlsx
 │
 ├── raffle_preparation.xlsx           created by run_prepare.bat
 ├── raffle_validation.xlsx            created by run_validate.bat
+├── manual_basket_winners.xlsx        created by run_validate.bat, only if a basket has zero entries
 ├── raffle_results.xlsx               created by run_draw.bat; KEEP SECRET
 └── draw_data.js                      created by run_draw.bat; KEEP SECRET
 ```
@@ -124,7 +124,17 @@ The script searches donation comments for:
 - nickname and last initial
 - aliases maintained in the workbook
 
-A first name by itself is not used because it can credit the wrong volunteer. (Manually adjusted in later step.)
+A first name by itself is not used because it can credit the wrong volunteer. (Manually adjusted in later step.) There are three exceptions and one extra pass:
+
+**Volunteers listed with only a first name.** If a volunteer's `Last` cell is empty, that exact first name (and nickname, if any) is the only possible way to match them, so it is used. `run_prepare.bat` prints a warning naming these volunteers because a bare first name in a comment has a higher chance of crediting the wrong person — give them a last name (even just an initial) if you can.
+
+**Last names that are just an initial.** If the roster says `Michelle` / `S`, a comment saying `Michelle Shonka` still matches, because the roster initial is allowed to continue into a longer word. The reverse was already true (`Julia F` in a comment matches roster `Julia Fannin`). If two volunteers could both match, the donation is flagged for review instead of guessed.
+
+**The donor's own name.** If the comment names no volunteer but the donor themself is on the volunteer list (a self-donation), the donation is credited automatically to the roster spelling of their name, with credit method `DONOR IS VOLUNTEER`. Volunteers do not need to write their own name in the comment when donating to themselves.
+
+**Case merging.** Credits that differ only in capitalization or spacing ("michelle Shonka" vs "Michelle Shonka") are merged into one participant with one ticket code, preferring the roster spelling.
+
+One more warning `run_prepare.bat` gives: if the volunteer list has extra columns containing text (for example, a scratch column of pasted names), it tells you those names are ignored. Anyone who should be matchable must be in the `First`/`Last` columns as their own row.
 
 ## 4. Ticket-pricing matrix
 
@@ -287,7 +297,7 @@ Included due to human error, easier for manual adjustments if needed.
 
 ### One numeric question per basket
 
-Every basket question must begin with:
+The simplest approach: every basket question begins with:
 
 ```text
 Tickets for:
@@ -302,6 +312,16 @@ Tickets for: CORE VOLUNTEERS ONLY
 ```
 
 The text after `Tickets for:` becomes the basket name on the website.
+
+**If no question begins with that prefix**, the script falls back automatically: every column in the form export that is not the timestamp, name, or ticket-code column is treated as a basket, using the question text itself as the basket name. This means you can title your questions however you like (just the basket name, no prefix required) and it still works — you do not need to change `raffle_config.json` for this.
+
+The one thing to watch for in fallback mode: Google Forms sometimes adds its own columns, most commonly `Email Address` when "Collect email addresses" is turned on. That column would otherwise look like a basket question with no valid ticket numbers in it, which would block the draw. It's excluded by default. If your form adds a different extra column (for example, a quiz "Score" column), add its exact header text to `ignore_columns` under `form` in `raffle_config.json`:
+
+```json
+"ignore_columns": ["Email Address", "Score"]
+```
+
+`run_validate.bat` prints the list of columns it decided to treat as baskets every time fallback mode is used, so you can check it caught the right ones before continuing.
 
 Google Form settings:
 
@@ -330,14 +350,20 @@ Do not send the complete ticket-balance workbook to all participants because it 
 At the deadline:
 
 1. Stop accepting responses.
-2. Export the response sheet to Excel.
+2. Export the response sheet to Excel or CSV (Google Forms only exports to Google Sheets directly, but Google Sheets can export to either `.xlsx` or `.csv` from File > Download).
 3. Save it inside the project folder as:
 
 ```text
 googleform_results.xlsx
 ```
+or
+```text
+googleform_results.csv
+```
 
-The workbook may have any worksheet name. The first worksheet is read. Open and manually adjust any mis-typed ticket codes. Save and close the workbook in Excel before running validation.
+Keep only one of the two in the project folder at a time. If both are present, `run_validate.bat` stops and asks you to remove the older one, the same way it does for duplicate donation exports.
+
+The workbook or CSV may have any worksheet/column order. For `.xlsx`, the first worksheet is read. Open and manually adjust any mis-typed ticket codes. Save and close the file before running validation.
 
 ## Run validation
 
@@ -350,7 +376,7 @@ run_validate.bat
 The script reads:
 
 - `raffle_preparation.xlsx` for official names, ticket codes, and balances;
-- `googleform_results.xlsx` for basket allocations.
+- `googleform_results.xlsx` or `googleform_results.csv` for basket allocations.
 
 It creates:
 
@@ -431,7 +457,7 @@ When the validation workbook shows a problem:
 
 1. Identify the participant and problem in `raffle_validation.xlsx`.
 2. Correct the response in Google Forms or in the controlled response sheet, according to the nonprofit’s process.
-3. Re-export the current responses to `googleform_results.xlsx`.
+3. Re-export the current responses to `googleform_results.xlsx` or `googleform_results.csv`.
 4. Close Excel.
 5. Delete `raffle_validation.xlsx`.
 6. Run `run_validate.bat` again.
@@ -496,13 +522,17 @@ Double-click:
 run_draw.bat
 ```
 
-This stage reads only:
+This stage reads:
 
 ```text
 raffle_validation.xlsx
+raffle_preparation.xlsx
+manual_basket_winners.xlsx    (only if it exists)
 ```
 
-It does not read the donation export, pricing workbook, preparation workbook, or Google Forms export. It checks every active validation row. If any row has `Ready for Draw = NO`, the draw stops. The person is not silently removed. Winner selection uses the positive ticket counts in the validation workbook. A participant with 50 tickets in a basket has five times the chance of a participant with 10 tickets in that basket. All zero and blank basket allocations are ignored. They are not written to the `Entries` sheet of `raffle_results.xlsx`. A basket with zero positive tickets is not included in the results or the presentation.
+It does not read the donation export, pricing workbook, or Google Forms export directly. It checks every active validation row. If any row has `Ready for Draw = NO`, the draw stops. The person is not silently removed. Winner selection uses the positive ticket counts in the validation workbook. A participant with 50 tickets in a basket has five times the chance of a participant with 10 tickets in that basket. All zero and blank basket allocations are ignored. They are not written to the `Entries` sheet of `raffle_results.xlsx`.
+
+A basket with zero positive tickets is skipped by default — unless you assign it manually. See **Assigning a winner to an empty basket** below.
 
 The script creates:
 
@@ -512,6 +542,22 @@ raffle_results.xlsx
 
 This workbook is **secret until the live raffle**. **NO CHEATING**
 
+### Assigning a winner to an empty basket
+
+Sometimes nobody submits tickets for a basket — maybe it was added late, or nobody was interested at the price point, but the organizer still wants to give it to someone (a walk-in, a volunteer, a manual pick from a physical hat). There is no coding involved:
+
+1. Run `run_validate.bat` as usual. If any basket has zero draw-eligible tickets, the script creates (or updates) `manual_basket_winners.xlsx` and lists it in the console output, one row per empty basket.
+2. Open `manual_basket_winners.xlsx` in Excel.
+3. In the yellow **Manual Winner (optional)** column, type the person's name **exactly** as it appears in `raffle_preparation.xlsx`'s `Participant Name` column. Capitalization doesn't need to match exactly, but the spelling does.
+4. Save and close the file.
+5. Leave the row blank for any basket you'd rather skip entirely — it will not appear in the results or on the website, exactly like today.
+6. Run `run_draw.bat`.
+
+If a name doesn't match anyone in `raffle_preparation.xlsx`, the draw stops before creating any secret files and tells you which basket and which typed name didn't match, so you can fix the spelling and try again.
+
+On the website, a manually assigned basket skips the spinning-name animation (there's nothing to spin through) and reveals immediately, with a note that no tickets were submitted and the organizer assigned it directly. The `Results` sheet in `raffle_results.xlsx` marks these rows with `Manual Assignment = YES` so there's a permanent record of which winners came from the weighted draw versus a manual call.
+
+If `manual_basket_winners.xlsx` doesn't exist yet, it means every basket currently has at least one draw-eligible ticket — nothing to do.
 
 ### Results workbook
 
@@ -519,10 +565,10 @@ This workbook is **secret until the live raffle**. **NO CHEATING**
 Contains event information and a confidentiality warning.
 
 `Results`
-Contains one precomputed winner per positive-ticket basket.
+Contains one winner per basket that has either draw-eligible tickets or a manual assignment. Includes a `Manual Assignment` column (`YES`/`NO`).
 
 `Entries`
-Contains only the positive ticket allocations used in the draw. Zero values are omitted.
+Contains only the positive ticket allocations used in the draw. Zero values are omitted. Manually assigned baskets have no rows here, since no tickets were submitted.
 
 `run_draw.bat` also writes `draw_data.js`, which holds the same winners and entries in the format the website reads. The website uses the entries only for the spinning-name animation and displays the winner already computed by the draw. Like `raffle_results.xlsx`, `draw_data.js` is secret until the live raffle.
 
@@ -594,11 +640,11 @@ The project is protecting secret winners from accidental replacement. Do not del
 
 ## No basket columns were found
 
-Every Google Form basket header must begin with the configured prefix, normally:
+This only happens when every column in the form export matched the timestamp, name, or ticket-code column, or was listed in `ignore_columns`, leaving nothing to treat as a basket. Open `googleform_results.xlsx`/`.csv` and confirm there is at least one other question column, and that `ignore_columns` in `raffle_config.json` isn't excluding a real basket by mistake.
 
-```text
-Tickets for:
-```
+## Manual winner does not match an official participant name
+
+You typed a name in `manual_basket_winners.xlsx` that doesn't match anyone in the `Participant Name` column of `raffle_preparation.xlsx`. The draw stops before writing any secret files. Open `raffle_preparation.xlsx`, copy the person's name exactly as spelled there into the `Manual Winner (optional)` column, save, and rerun `run_draw.bat`. Capitalization can differ; spelling and spacing cannot.
 
 ## A typed name does not match
 
@@ -627,6 +673,7 @@ Review:
 - `Donation Detail` in `raffle_preparation.xlsx`.
 
 The detail sheet shows the exact matrix points used for interpolation or extrapolation.
+
 ---
 
 # Additional Notes
