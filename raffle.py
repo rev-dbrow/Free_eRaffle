@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""Reusable nonprofit e-raffle workflow.
-
-Click-to-run stages
--------------------
-1. prepare  -> donation credit, interpolated ticket balances, ticket codes
-2. validate -> compare the Google Forms export with official balances
-3. draw     -> read the approved validation workbook and calculate winners
-
-The draw stage never reads the raw Google Forms export. The website never reads
-raffle_validation.xlsx; it reads raffle_results.xlsx only.
-"""
+#what are you doing here? this isn't for people to actually READ wtf
 
 from __future__ import annotations
 
@@ -37,7 +27,6 @@ except ImportError as exc:  # pragma: no cover
         f"Technical detail: {exc}"
     ) from exc
 
-
 HEADER_FILL = "1F4E78"
 HEADER_FONT = "FFFFFF"
 TITLE_FILL = "D9EAF7"
@@ -58,11 +47,10 @@ class Paths:
     preparation: Path
     validation: Path
     results: Path
-
+    website_data: Path
 
 def now_text() -> str:
     return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
-
 
 def normalize_text(value: Any) -> str:
     if value is None or (isinstance(value, float) and math.isnan(value)):
@@ -73,16 +61,13 @@ def normalize_text(value: Any) -> str:
     text = re.sub(r"[^a-zA-Z0-9]+", " ", text.lower())
     return re.sub(r"\s+", " ", text).strip()
 
-
 def clean_display(value: Any) -> str:
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return ""
     return re.sub(r"\s+", " ", str(value)).strip()
 
-
 def is_blank(value: Any) -> bool:
     return value is None or (isinstance(value, float) and math.isnan(value)) or not str(value).strip()
-
 
 def parse_amount(value: Any) -> float | None:
     if is_blank(value):
@@ -97,10 +82,8 @@ def parse_amount(value: Any) -> float | None:
     amount = float(text)
     return round(-amount if negative else amount, 2)
 
-
 def normalize_code(value: Any) -> str:
     return re.sub(r"\s+", "", clean_display(value)).upper()
-
 
 def load_config(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
@@ -110,7 +93,6 @@ def load_config(path: Path) -> dict[str, Any]:
     if missing:
         raise ValueError("raffle_config.json is missing section(s): " + ", ".join(missing))
     return config
-
 
 def resolve_one(root: Path, configured: str, *, required: bool = True) -> Path:
     candidate = root / configured
@@ -130,11 +112,10 @@ def resolve_one(root: Path, configured: str, *, required: bool = True) -> Path:
         raise FileNotFoundError(f"File not found: {candidate}")
     return candidate
 
-
 def build_paths(config_path: Path, config: dict[str, Any], command: str) -> Paths:
     root = config_path.parent.resolve()
     files = config["files"]
-    output_dir = root / files.get("output_directory", "output")
+    output_dir = root / files.get("output_directory", ".")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     return Paths(
@@ -159,12 +140,12 @@ def build_paths(config_path: Path, config: dict[str, Any], command: str) -> Path
             if command == "validate"
             else root / files["form_responses"]
         ),
-        manual_credits=root / files.get("manual_credits", "inputs/manual_credits.xlsx"),
+        manual_credits=root / files.get("manual_credits", "manual_credits.xlsx"),
         preparation=output_dir / files.get("preparation_workbook", "raffle_preparation.xlsx"),
         validation=output_dir / files.get("validation_workbook", "raffle_validation.xlsx"),
         results=output_dir / files.get("results_workbook", "raffle_results.xlsx"),
+        website_data=output_dir / files.get("website_data", "draw_data.js"),
     )
-
 
 def read_table(path: Path, *, sheet_name: str | int = 0) -> pd.DataFrame:
     suffix = path.suffix.lower()
@@ -177,12 +158,10 @@ def read_table(path: Path, *, sheet_name: str | int = 0) -> pd.DataFrame:
     frame.columns = [clean_display(col).lstrip("\ufeff") for col in frame.columns]
     return frame
 
-
 def require_columns(frame: pd.DataFrame, columns: Iterable[str], label: str) -> None:
     missing = [col for col in columns if col and col not in frame.columns]
     if missing:
         raise ValueError(f"{label} is missing column(s): {', '.join(missing)}")
-
 
 def first_existing_column(frame: pd.DataFrame, candidates: Iterable[str]) -> str | None:
     normalized = {normalize_text(col): col for col in frame.columns}
@@ -194,7 +173,6 @@ def first_existing_column(frame: pd.DataFrame, candidates: Iterable[str]) -> str
             return found
     return None
 
-
 def donation_id(row: pd.Series, columns: dict[str, str]) -> str:
     values = [
         clean_display(row.get(columns.get("date", ""), "")),
@@ -205,7 +183,6 @@ def donation_id(row: pd.Series, columns: dict[str, str]) -> str:
         clean_display(row.get(columns.get("comment", ""), "")),
     ]
     return "DON-" + hashlib.sha256("|".join(values).encode("utf-8")).hexdigest()[:10].upper()
-
 
 def build_volunteer_aliases(volunteers: pd.DataFrame, columns: dict[str, str]) -> dict[str, set[str]]:
     require_columns(volunteers, [columns["first"], columns["last"]], "Volunteer list")
@@ -238,7 +215,6 @@ def build_volunteer_aliases(volunteers: pd.DataFrame, columns: dict[str, str]) -
                     add(alias.strip(), official)
     return aliases
 
-
 def match_volunteer(comment: str, aliases: dict[str, set[str]]) -> list[str]:
     text = normalize_text(comment)
     if not text:
@@ -248,7 +224,6 @@ def match_volunteer(comment: str, aliases: dict[str, set[str]]) -> list[str]:
         if re.search(rf"(?<![a-zA-Z0-9]){re.escape(alias)}(?![a-zA-Z0-9])", text):
             matched.update(aliases[alias])
     return sorted(matched)
-
 
 def load_pricing(path: Path, columns: dict[str, str]) -> pd.DataFrame:
     frame = read_table(path)
@@ -267,7 +242,6 @@ def load_pricing(path: Path, columns: dict[str, str]) -> pd.DataFrame:
     pricing = pd.DataFrame(rows).drop_duplicates("Donation", keep="last").sort_values("Donation")
     return pricing.reset_index(drop=True)
 
-
 def round_tickets(value: float, mode: str, increment: int) -> int:
     increment = max(1, int(increment))
     scaled = value / increment
@@ -278,7 +252,6 @@ def round_tickets(value: float, mode: str, increment: int) -> int:
     else:
         rounded = math.floor(scaled + 0.5)
     return max(0, int(rounded * increment))
-
 
 def estimate_tickets(amount: float, pricing: pd.DataFrame, config: dict[str, Any]) -> tuple[int, float, str, str]:
     points = [(float(row.Donation), float(row.Tickets)) for row in pricing.itertuples(index=False)]
@@ -321,7 +294,6 @@ def estimate_tickets(amount: float, pricing: pd.DataFrame, config: dict[str, Any
     increment = int(config.get("round_to_increment", 1))
     return round_tickets(raw, mode, increment), raw, method, basis
 
-
 def load_manual_credits(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame(columns=["Donation ID", "Manual Credit Name", "Manual Ticket Override", "Organizer Notes"])
@@ -331,7 +303,6 @@ def load_manual_credits(path: Path) -> pd.DataFrame:
         if col not in frame.columns:
             frame[col] = ""
     return frame[required]
-
 
 def previous_codes(preparation_path: Path) -> dict[str, str]:
     if not preparation_path.exists():
@@ -347,7 +318,6 @@ def previous_codes(preparation_path: Path) -> dict[str, str]:
         for _, row in frame.iterrows()
         if clean_display(row["Participant Name"]) and normalize_code(row["Ticket Code"])
     }
-
 
 def assign_codes(names: Iterable[str], existing: dict[str, str]) -> dict[str, str]:
     names = sorted(
@@ -417,13 +387,11 @@ def style_workbook(path: Path, *, status_sheets: Iterable[str] = (), editable_co
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
     workbook.save(path)
 
-
 def write_workbook(path: Path, sheets: list[tuple[str, pd.DataFrame]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         for name, frame in sheets:
             frame.to_excel(writer, sheet_name=name, index=False)
-
 
 def prepare(config: dict[str, Any], paths: Paths) -> int:
     donations = read_table(paths.donations)
@@ -493,7 +461,7 @@ def prepare(config: dict[str, Any], paths: Paths) -> int:
             tickets = int(manual_ticket)
             raw_estimate = float(tickets)
             ticket_method = "MANUAL TICKET OVERRIDE"
-            ticket_basis = "inputs/manual_credits.xlsx"
+            ticket_basis = "manual_credits.xlsx"
         elif source_ticket is not None:
             if source_ticket < 0 or not float(source_ticket).is_integer():
                 raise ValueError(f"Source ticket value for {identifier} must be a nonnegative whole number.")
@@ -569,7 +537,7 @@ def prepare(config: dict[str, Any], paths: Paths) -> int:
             ["Total Donations", float(detail["Donation Amount"].sum())],
             ["Total Official Tickets", int(detail["Final Tickets"].sum())],
             ["Comment Matches Needing Review", int(detail["Credit Status"].str.contains("REVIEW", na=False).sum())],
-            ["Next Step", "Review inputs/manual_credits.xlsx if needed, rerun prepare, then build the Google Form."],
+            ["Next Step", "Review manual_credits.xlsx if needed, rerun prepare, then build the Google Form."],
         ],
         columns=["Item", "Value"],
     )
@@ -600,7 +568,6 @@ def prepare(config: dict[str, Any], paths: Paths) -> int:
     print(f"Participants: {len(balances):,} | Official tickets: {int(detail['Final Tickets'].sum()):,}")
     return 0
 
-
 def find_basket_columns(frame: pd.DataFrame, prefix: str) -> list[str]:
     normalized_prefix = normalize_text(prefix)
     columns = [col for col in frame.columns if normalize_text(col).startswith(normalized_prefix)]
@@ -613,7 +580,6 @@ def basket_name(header: str, prefix: str) -> str:
     pattern = re.compile(rf"^\s*{re.escape(prefix)}\s*", flags=re.IGNORECASE)
     name = pattern.sub("", clean_display(header)).strip(" :-")
     return name or clean_display(header)
-
 
 def parse_ticket_cell(value: Any) -> tuple[int, str]:
     if is_blank(value):
@@ -629,7 +595,6 @@ def parse_ticket_cell(value: Any) -> tuple[int, str]:
     if not number.is_integer():
         return 0, f"FRACTIONAL VALUE: {value}"
     return int(number), ""
-
 
 def validate(config: dict[str, Any], paths: Paths) -> int:
     if not paths.preparation.exists():
@@ -839,7 +804,6 @@ def validate(config: dict[str, Any], paths: Paths) -> int:
     print("DRAW READY: no blocking responses were found.")
     return 0
 
-
 def weighted_winner(entries: list[dict[str, Any]]) -> dict[str, Any]:
     total = sum(int(entry["Tickets"]) for entry in entries)
     pick = secrets.randbelow(total) + 1
@@ -849,7 +813,6 @@ def weighted_winner(entries: list[dict[str, Any]]) -> dict[str, Any]:
         if pick <= cumulative:
             return entry
     return entries[-1]
-
 
 def draw(config: dict[str, Any], paths: Paths) -> int:
     if not paths.validation.exists():
@@ -933,9 +896,9 @@ def draw(config: dict[str, Any], paths: Paths) -> int:
             ["Event", config["event"].get("name", "Clinic Fundraising Raffle")],
             ["Event Date", config["event"].get("date", "")],
             ["Results Created At", drawn_at],
-            ["Source", "output/raffle_validation.xlsx"],
+            ["Source", "raffle_validation.xlsx"],
             ["Multiple Wins Allowed", "YES" if allow_multiple else "NO"],
-            ["Website File", "web/draw.html"],
+            ["Website File", "draw.html"],
             ["Confidentiality", "SECRET UNTIL THE LIVE RAFFLE"],
         ],
         columns=["Item", "Value"],
@@ -945,19 +908,43 @@ def draw(config: dict[str, Any], paths: Paths) -> int:
     write_workbook(paths.results, [("Event", event_rows), ("Results", results), ("Entries", entries)])
     style_workbook(paths.results)
 
+    # website data: one basket per result row, entrants aggregated per participant
+    web_baskets: list[dict[str, Any]] = []
+    for row in results_rows:
+        totals: dict[str, int] = {}
+        for entry in entries_rows:
+            if entry["Basket Order"] == row["Basket Order"]:
+                totals[entry["Participant Name"]] = totals.get(entry["Participant Name"], 0) + entry["Tickets"]
+        web_baskets.append(
+            {
+                "name": row["Basket"],
+                "pool": row["Total Tickets in Basket"],
+                "winner": row["Winner"],
+                "winnerTickets": totals.get(row["Winner"], row["Winner Tickets in Basket"]),
+                "entrants": [{"n": name, "t": tickets} for name, tickets in sorted(totals.items())],
+            }
+        )
+    payload = {
+        "event": config["event"].get("name", "Clinic Fundraising Raffle"),
+        "date": config["event"].get("date", ""),
+        "drawnAt": drawn_at,
+        "baskets": web_baskets,
+    }
+    with paths.website_data.open("w", encoding="utf-8") as handle:
+        handle.write("const DATA = " + json.dumps(payload, indent=2) + ";\n")
+
     print(f"SECRET results created: {paths.results}")
+    print(f"SECRET website data created: {paths.website_data}")
     print(f"Baskets drawn: {len(results):,}")
-    print("Do not open or share raffle_results.xlsx before the live raffle.")
+    print("Do not open or share raffle_results.xlsx or draw_data.js before the live raffle.")
     print("At the event, run run_website.bat to present the winners one basket at a time.")
     return 0
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare, validate, and draw a clinic e-raffle.")
     parser.add_argument("command", choices=["prepare", "validate", "draw"])
     parser.add_argument("--config", default="raffle_config.json")
     return parser.parse_args()
-
 
 def main() -> int:
     args = parse_args()
@@ -973,7 +960,6 @@ def main() -> int:
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
