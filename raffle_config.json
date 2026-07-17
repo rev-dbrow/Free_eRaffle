@@ -1,19 +1,20 @@
 {
   "event": {
-    "name": "Example Clinic Fundraising Raffle",
-    "date": "2026-07-10",
+    "name": "Volunteer Fundraising Raffle",
+    "date": "2026",
     "form_link": ""
   },
   "files": {
-    "donations": "inputs/Clinic Fundraising_*.csv",
-    "volunteers": "inputs/volunteer_list.xlsx",
-    "ticket_pricing": "inputs/ticket_pricing.xlsx",
-    "form_responses": "inputs/googleform_results.xlsx",
-    "manual_credits": "inputs/manual_credits.xlsx",
-    "output_directory": "output",
+    "donations": "Clinic*Fundraising*.csv",
+    "volunteers": "volunteer_list.xlsx",
+    "ticket_pricing": "ticket_pricing.xlsx",
+    "form_responses": "googleform_results.xlsx",
+    "manual_credits": "manual_credits.xlsx",
+    "output_directory": ".",
     "preparation_workbook": "raffle_preparation.xlsx",
     "validation_workbook": "raffle_validation.xlsx",
-    "results_workbook": "raffle_results.xlsx"
+    "results_workbook": "raffle_results.xlsx",
+    "website_data": "draw_data.js"
   },
   "donation_columns": {
     "amount": "Donation Amount",
@@ -40,9 +41,18 @@
     "round_to_increment": 1
   },
   "form": {
-    "timestamp_columns": ["Timestamp", "Completion time"],
-    "name_columns": ["Your name", "Name"],
-    "code_columns": ["Your ticket code", "Ticket code"],
+    "timestamp_columns": [
+      "Timestamp",
+      "Completion time"
+    ],
+    "name_columns": [
+      "Your name",
+      "Name"
+    ],
+    "code_columns": [
+      "Your ticket code",
+      "Ticket code"
+    ],
     "basket_prefix": "Tickets for:"
   },
   "validation": {
