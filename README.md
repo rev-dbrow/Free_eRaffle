@@ -479,14 +479,14 @@ Confirm that:
 - Excel is closed;
 - `raffle_results.xlsx` does not already exist.
 
-## Configure `raffle_config.jsn`
+## Configure `raffle_config.jsn` if you want a less-generic name.
 
 Update the name, date, and form link in `event` section:
 
 ```json
 "event": {
-  "name": "Example Clinic Fundraising Raffle",
-  "date": "2026-07-10",
+  "name": "Volunteer Fundraising Raffle",
+  "date": "2026",
   "form_link": ""
 }
 ```
@@ -509,7 +509,7 @@ When repeat winners are disabled, a prior winner’s later-basket entries are ig
 
 #### Additional changes
 
-If you would like to make any additional changes, that's up to you. I tried to make this as bland as humanly possible so it could have a wide variety of use cases.
+If you would like to make any additional changes, that's up to you. I tried to make this as bland as humanly possible so it could have a wide variety of use cases. You'll have to edit the .html though.
 
 ###### Congratulations, you just made a website!
 (Kinda)
