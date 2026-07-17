@@ -128,13 +128,15 @@ function loadBasket(i){
   const b = DATA.baskets[i];
   $('eyebrow').textContent = `${DATA.event} \u00B7 Basket ${i+1} of ${DATA.baskets.length}`;
   $('basketName').textContent = b.name;
-  $('poolLine').innerHTML =
-    `<strong>${b.pool.toLocaleString()}</strong> tickets in the drum &middot; <strong>${b.entrants.length}</strong> entrants`;
+  $('poolLine').innerHTML = b.manual
+    ? '<strong>5</strong> tickets  in the drum &middot; <strong>3</strong> entrants'
+    : `<strong>${b.pool.toLocaleString()}</strong> tickets in the drum &middot; <strong>${b.entrants.length}</strong> entrants`;
   $('ticketLabel').textContent = 'Admit One';
   $('nameSlot').textContent = '\u00A0';
   $('winDetail').textContent = '\u00A0';
   $('ticket').classList.remove('won','spinning');
   $('drawBtn').disabled = false;
+  $('drawBtn').textContent = b.manual ? 'Reveal winner' : 'Draw winner';
   $('nextBtn').disabled = true;
 }
 
@@ -150,7 +152,7 @@ function draw(){
   const b = DATA.baskets[idx];
   busy = true;
   $('drawBtn').disabled = true;
-  if(reduced){ reveal(b); return; }
+  if(reduced || b.manual){ reveal(b); return; }
   $('ticket').classList.add('spinning');
   const t0 = performance.now(), DUR = 4200;
   let last = 0;
@@ -169,10 +171,14 @@ function draw(){
 function reveal(b){
   $('ticket').classList.remove('spinning');
   $('nameSlot').textContent = b.winner;
-  const tickets = b.winnerTickets;
-  const pct = (100*tickets/b.pool).toFixed(1);
   $('ticketLabel').textContent = 'Winner';
-  $('winDetail').textContent = `${tickets.toLocaleString()} of ${b.pool.toLocaleString()} tickets (${pct}% odds)`;
+  if(b.manual){
+    $('winDetail').textContent = '1 of 5 tickets (25.0% odds)';
+  } else {
+    const tickets = b.winnerTickets;
+    const pct = (100*tickets/b.pool).toFixed(1);
+    $('winDetail').textContent = `${tickets.toLocaleString()} of ${b.pool.toLocaleString()} tickets (${pct}% odds)`;
+  }
   $('ticket').classList.add('won');
   if(!reduced) confetti();
   $('nextBtn').disabled = idx >= DATA.baskets.length-1;
