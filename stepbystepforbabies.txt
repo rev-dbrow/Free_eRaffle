@@ -5,18 +5,18 @@ This is for anyone who has never used a git repo, has zero idea how to code, or 
 Basic Setup of DEMO EXAMPLE steps:
 
 1. Download python from your company portal or on python.org. During a standard Windows installation select "Add Python to PATH".
-2. Download each branch (main, input examples) of the repository by clicking the green "Code" button, then extract the .zip file to your computer. (A local path works best, like "C:\Users\Raffle".) Within the main folder, you'll have to make a folder named "input" and put the input examples there. You can look at the files, but they have to be saved/closed when the .bat files are running.
+2. Download the main branch of the repository by clicking the green "Code" button, HTTPS, zipped folder, then extract the .zip file to your computer. (A local path works best, like "C:\Users\Raffle".) The example files are includes so you can match headers to your actual data files. You can look at the files, but they have to be saved/closed when the .bat files are running.
 3. Go to your unzipped folder and double click the file "setup.bat". This creates a virtual environment for the code to run in. (installs required python libraries in a quarantined folder)
-4. When that is done, double click the file "run_prepare.bat". (generates an \output folder and file)
-5. Click the "run_validate.bat" file. (creates a validation file in \output folder)
-6. Click the "run_draw.bat" file. (creates raffle results/winners for the site to read)
-7. Click the "run_website.bat" file. (creates/opens locally-hosted raffle results site)
+4. When that is done, double click the file "run_prepare.bat".
+5. Click the "run_validate.bat" file.
+6. Click the "run_draw.bat" file.
+7. Click the "run_website.bat" file.
 8. Run through the demo site! Close browser tab, return to command window, and use "Ctrl+C" to stop the local server. (Raffle results can be sent to financial auditing if necessary.)
 
 To transition to your first REAL RUN:
 
 1. The following files are REQUIRED to follow the example formatting: Clinic Fundraising_EXAMPLE.csv, googleform_results.xlsx, volunteer_list.xlsx, and ticket_pricing.xlsx. You can choose to copy the files and place in a new folder, or replace the information in the cells with your info from other docs.
-2. Delete all other inputs files and the entire folder (files included).
+2. Delete all other files.
 
 PLEASE NOTE that there will be errors if these example input/outputs are not moved/deleted. You CANNOT save files with the same naming convention to the folders, as the script will error and not know which file to read.
 ***
