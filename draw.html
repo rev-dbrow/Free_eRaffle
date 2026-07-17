@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raffle Draw</title>
+<style>
+  :root{
+    --ink:#101820; --ink2:#1A2530; --brass:#D9A441; --ivory:#F5EFE3;
+    --slate:#7C8894; --red:#B3402F;
+    --display:'Impact','Haettenschweiler','Arial Narrow Bold','Arial Narrow',sans-serif;
+    --body:'Trebuchet MS','Segoe UI',system-ui,sans-serif;
+    --mono:'Consolas','Menlo',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--ink);color:var(--ivory);font-family:var(--body);
+       display:flex;flex-direction:column;align-items:center;justify-content:center;
+       gap:4vh;overflow:hidden;position:relative}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;
+       background:radial-gradient(ellipse 90% 70% at 50% 42%, rgba(217,164,65,.10), transparent 65%)}
+
+  .eyebrow{letter-spacing:.35em;font-size:clamp(12px,1.4vw,18px);color:var(--brass);
+       text-transform:uppercase;font-weight:700}
+  .basket-name{font-family:var(--display);font-size:clamp(40px,7vw,96px);
+       letter-spacing:.04em;text-transform:uppercase;line-height:1;text-align:center}
+  .pool-line{color:var(--slate);font-size:clamp(14px,1.6vw,20px)}
+  .pool-line strong{color:var(--ivory)}
+
+  /* the ticket */
+  .ticket{position:relative;background:var(--ivory);color:var(--ink);
+       width:min(88vw,980px);border-radius:14px;padding:5vh 8vw;
+       display:flex;flex-direction:column;align-items:center;gap:2vh;
+       box-shadow:0 24px 80px rgba(0,0,0,.55);
+       transition:transform .12s ease}
+  .ticket::before,.ticket::after{content:"";position:absolute;top:50%;width:44px;height:44px;
+       background:var(--ink);border-radius:50%;transform:translateY(-50%)}
+  .ticket::before{left:-22px}
+  .ticket::after{right:-22px}
+  .perf{position:absolute;top:12px;bottom:12px;width:0;
+       border-left:3px dashed rgba(16,24,32,.25)}
+  .perf.l{left:56px}.perf.r{right:56px}
+  .ticket .label{letter-spacing:.4em;font-size:clamp(10px,1.1vw,14px);
+       color:var(--red);text-transform:uppercase;font-weight:700}
+  .name-slot{font-family:var(--display);font-size:clamp(34px,6vw,84px);
+       letter-spacing:.03em;text-transform:uppercase;line-height:1.05;
+       min-height:1.1em;text-align:center;white-space:nowrap;
+       max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .ticket.spinning .name-slot{color:var(--ink2)}
+  .ticket.won{animation:stamp .35s ease-out}
+  .ticket.won .name-slot{color:var(--red)}
+  @keyframes stamp{0%{transform:scale(1)}40%{transform:scale(1.05)}100%{transform:scale(1)}}
+  .win-detail{font-size:clamp(13px,1.5vw,18px);color:var(--ink2);opacity:0;transition:opacity .5s}
+  .ticket.won .win-detail{opacity:.75}
+
+  button{font-family:var(--body);font-weight:700;font-size:clamp(16px,2vw,24px);
+       letter-spacing:.12em;text-transform:uppercase;cursor:pointer;
+       border:none;border-radius:10px;padding:.9em 2.4em;
+       background:var(--brass);color:var(--ink);transition:transform .1s,opacity .2s}
+  button:hover{transform:translateY(-2px)}
+  button:focus-visible{outline:3px solid var(--ivory);outline-offset:3px}
+  button:disabled{opacity:0;pointer-events:none}
+  button.ghost{background:transparent;color:var(--brass);border:2px solid var(--brass)}
+
+  .error-box{background:var(--red);color:var(--ivory);border-radius:10px;
+       padding:2em 3em;max-width:min(88vw,760px);text-align:center;
+       font-size:clamp(15px,1.8vw,20px);line-height:1.5;display:none}
+  .error-box code{font-family:var(--mono);background:rgba(0,0,0,.25);
+       padding:.1em .4em;border-radius:4px}
+
+  .footer{position:fixed;bottom:14px;left:0;right:0;text-align:center;
+       font-family:var(--mono);font-size:12px;color:var(--slate);letter-spacing:.08em}
+  canvas#confetti{position:fixed;inset:0;pointer-events:none}
+
+  @media (prefers-reduced-motion: reduce){
+    .ticket.won{animation:none}
+  }
+</style>
+</head>
+<body>
+
+  <div class="eyebrow" id="eyebrow">&nbsp;</div>
+  <div class="basket-name" id="basketName">&nbsp;</div>
+  <div class="pool-line" id="poolLine"></div>
+
+  <div class="ticket" id="ticket">
+    <div class="perf l"></div><div class="perf r"></div>
+    <div class="label" id="ticketLabel">Admit One</div>
+    <div class="name-slot" id="nameSlot">&nbsp;</div>
+    <div class="win-detail" id="winDetail">&nbsp;</div>
+  </div>
+
+  <div id="controls">
+    <button id="drawBtn">Draw winner</button>
+    <button id="nextBtn" class="ghost" disabled>Next basket</button>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="footer" id="footer"></div>
+  <canvas id="confetti"></canvas>
+
+<script src="draw_data.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+// draw_data.js is written by run_draw.bat and defines const DATA
+function fail(message){
+  $('ticket').style.display = 'none';
+  $('controls').style.display = 'none';
+  $('errorBox').style.display = 'block';
+  $('errorBox').innerHTML = message;
+}
+if(typeof DATA === 'undefined'){
+  fail('Could not load <code>draw_data.js</code>. Run <code>run_draw.bat</code> first, then start this page with <code>run_website.bat</code>.');
+  throw new Error('draw_data.js missing');
+}
+if(!DATA.baskets || !DATA.baskets.length){
+  fail('<code>draw_data.js</code> contains no baskets. Delete <code>raffle_results.xlsx</code> and <code>draw_data.js</code>, rerun <code>run_validate.bat</code> and <code>run_draw.bat</code>.');
+  throw new Error('draw_data.js empty');
+}
+
+document.title = DATA.event || 'Raffle Draw';
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let idx = 0, busy = false;
+
+function loadBasket(i){
+  const b = DATA.baskets[i];
+  $('eyebrow').textContent = `${DATA.event} \u00B7 Basket ${i+1} of ${DATA.baskets.length}`;
+  $('basketName').textContent = b.name;
+  $('poolLine').innerHTML =
+    `<strong>${b.pool.toLocaleString()}</strong> tickets in the drum &middot; <strong>${b.entrants.length}</strong> entrants`;
+  $('ticketLabel').textContent = 'Admit One';
+  $('nameSlot').textContent = '\u00A0';
+  $('winDetail').textContent = '\u00A0';
+  $('ticket').classList.remove('won','spinning');
+  $('drawBtn').disabled = false;
+  $('nextBtn').disabled = true;
+}
+
+/* names cycle in proportion to tickets held, so the spin preview is honest */
+function weightedName(entrants, pool){
+  let r = Math.random()*pool;
+  for(const e of entrants){ r -= e.t; if(r <= 0) return e.n; }
+  return entrants[entrants.length-1].n;
+}
+
+function draw(){
+  if(busy) return;
+  const b = DATA.baskets[idx];
+  busy = true;
+  $('drawBtn').disabled = true;
+  if(reduced){ reveal(b); return; }
+  $('ticket').classList.add('spinning');
+  const t0 = performance.now(), DUR = 4200;
+  let last = 0;
+  function tick(now){
+    const p = Math.min((now - t0)/DUR, 1);
+    const interval = 60 + 700*p*p*p;            /* decelerate */
+    if(now - last >= interval){
+      $('nameSlot').textContent = weightedName(b.entrants, b.pool);
+      last = now;
+    }
+    if(p < 1) requestAnimationFrame(tick); else reveal(b);
+  }
+  requestAnimationFrame(tick);
+}
+
+function reveal(b){
+  $('ticket').classList.remove('spinning');
+  $('nameSlot').textContent = b.winner;
+  const tickets = b.winnerTickets;
+  const pct = (100*tickets/b.pool).toFixed(1);
+  $('ticketLabel').textContent = 'Winner';
+  $('winDetail').textContent = `${tickets.toLocaleString()} of ${b.pool.toLocaleString()} tickets (${pct}% odds)`;
+  $('ticket').classList.add('won');
+  if(!reduced) confetti();
+  $('nextBtn').disabled = idx >= DATA.baskets.length-1;
+  busy = false;
+}
+
+$('drawBtn').addEventListener('click', draw);
+$('nextBtn').addEventListener('click', () => { idx++; loadBasket(idx); });
+document.addEventListener('keydown', e => {
+  if(e.code === 'Space' || e.code === 'Enter'){
+    e.preventDefault();
+    if(!$('drawBtn').disabled) draw();
+    else if(!$('nextBtn').disabled){ idx++; loadBasket(idx); }
+  }
+});
+
+/* confetti */
+function confetti(){
+  const cv = $('confetti'), ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const colors = ['#D9A441','#F5EFE3','#B3402F'];
+  const parts = Array.from({length:140}, () => ({
+    x: innerWidth/2 + (Math.random()-0.5)*innerWidth*0.4,
+    y: innerHeight*0.35, vx:(Math.random()-0.5)*9, vy:-(4+Math.random()*8),
+    s:5+Math.random()*6, r:Math.random()*Math.PI, vr:(Math.random()-0.5)*0.25,
+    c: colors[Math.floor(Math.random()*colors.length)]
+  }));
+  const t0 = performance.now();
+  function frame(now){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(const p of parts){
+      p.vy += 0.22; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); ctx.restore();
+    }
+    if(now - t0 < 2800) requestAnimationFrame(frame);
+    else ctx.clearRect(0,0,cv.width,cv.height);
+  }
+  requestAnimationFrame(frame);
+}
+
+$('footer').textContent = `${DATA.event} \u00B7 winners drawn ${DATA.drawnAt} by weighted random draw \u00B7 revealed live`;
+loadBasket(0);
+</script>
+</body>
+</html>
