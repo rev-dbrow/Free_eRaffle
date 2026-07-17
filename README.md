@@ -11,13 +11,15 @@ It is designed to be locally ran at the event/clinic site by someone who has no 
 3. **Draw** creates winners from validation file (limitations of this project create need for separate winners file)
 4. **Present** website that presents the winners from the secret results workbook.
 
-`run_draw.bat` does not read or validate the raw Google Forms export. It reads only `output\raffle_validation.xlsx`.
+`run_draw.bat` does not read or validate the raw Google Forms export. It reads only `raffle_validation.xlsx`.
 
-The website does not read the validation workbook and does not calculate winners. It reads only `output\raffle_results.xlsx`.
+The website does not read the validation workbook and does not calculate winners. It reads only `draw_data.js`, which `run_draw.bat` writes from the same data as `raffle_results.xlsx`.
 
 ---
 
 ## Project contents
+
+Everything lives in one folder. There are no subfolders except the `.venv` created by `setup.bat`.
 
 ```text
 \eRaffle
@@ -32,22 +34,18 @@ The website does not read the validation workbook and does not calculate winners
 ├── run_validate.bat
 ├── run_draw.bat
 ├── run_website.bat
+├── draw.html
 │
-├── inputs\
-│   ├── Clinic Fundraising_YYYY_MM_DD.csv
-│   ├── volunteer_list.xlsx
-│   ├── ticket_pricing.xlsx
-│   ├── googleform_results.xlsx
-│   └── manual_credits.xlsx
+├── Clinic Fundraising_YYYY_MM_DD.csv
+├── volunteer_list.xlsx
+├── ticket_pricing.xlsx
+├── googleform_results.xlsx
+├── manual_credits.xlsx
 │
-├── output\
-│   ├── raffle_preparation.xlsx       created by run_prepare.bat
-│   ├── raffle_validation.xlsx        created by run_validate.bat
-│   └── raffle_results.xlsx           created by run_draw.bat; KEEP SECRET
-│
-├── web\
-│   └── draw.html
-└──
+├── raffle_preparation.xlsx           created by run_prepare.bat
+├── raffle_validation.xlsx            created by run_validate.bat
+├── raffle_results.xlsx               created by run_draw.bat; KEEP SECRET
+└── draw_data.js                      created by run_draw.bat; KEEP SECRET
 ```
 
 The included input files contain scrubbed demonstration data. You should run the complete example to understand the project's process and limitations.
@@ -70,7 +68,7 @@ If the project folder is moved to another computer, run `setup.bat` again on tha
 Before beginning a new raffle:
 
 1. Requirements: Windows operating system, Python, chrome or edge browser
-2. You must have a volunteer list, ticket pricing matrix and donations list in separate excel files that follow a specific naming convention and format. They must be in a folder named "Inputs". (Refer to the Input Examples branch for examples.)
+2. You must have a volunteer list, ticket pricing matrix and donations list in separate excel files that follow a specific naming convention and format. They must be in the project folder next to raffle.py. (Refer to the Input Examples branch for examples.)
 
 ### 1. Donations file
 
@@ -80,7 +78,7 @@ The default filename pattern is:
 Clinic Fundraising_*.csv
 ```
 
-Only one file may match that pattern in inputs folder. If two donation exports are present, the script stops instead of guessing which one is current. Any numbers, letters, etc. can be after the * in the file name.
+Only one file may match that pattern in the project folder. If two donation exports are present, the script stops instead of guessing which one is current. Any numbers, letters, etc. can be after the * in the file name.
 
 The default expected columns are:
 
@@ -176,7 +174,7 @@ Changes to `ticket_pricing.xlsx` automatically affect future preparation runs. N
 
 ### Input files used
 
-`run_prepare.bat` reads (from inputs folder):
+`run_prepare.bat` reads (from the project folder):
 
 - the donation CSV;
 - `volunteer_list.xlsx`;
@@ -185,8 +183,8 @@ Changes to `ticket_pricing.xlsx` automatically affect future preparation runs. N
 
 It creates:
 
-- `output\raffle_preparation.xlsx`;
-- `inputs\manual_credits.xlsx` (updates this file after initial run)
+- `raffle_preparation.xlsx`;
+- `manual_credits.xlsx` (updates this file after initial run)
 
 
 ### Edit Manual Credits
@@ -224,7 +222,7 @@ After entering corrections:
 
 ### Raffle Preparation
 
-Review `output\raffle_preparation.xlsx`.
+Review `raffle_preparation.xlsx`.
 
 Important sheets:
 
@@ -333,7 +331,7 @@ At the deadline:
 
 1. Stop accepting responses.
 2. Export the response sheet to Excel.
-3. Save it inside the inputs folder as:
+3. Save it inside the project folder as:
 
 ```text
 googleform_results.xlsx
@@ -351,13 +349,13 @@ run_validate.bat
 
 The script reads:
 
-- `output\raffle_preparation.xlsx` for official names, ticket codes, and balances;
-- `inputs\googleform_results.xlsx` for basket allocations.
+- `raffle_preparation.xlsx` for official names, ticket codes, and balances;
+- `googleform_results.xlsx` for basket allocations.
 
 It creates:
 
 ```text
-output\raffle_validation.xlsx
+raffle_validation.xlsx
 ```
 If needing to re-run `run_validate.bat` after later manual adjustments, you must delete the `raffle_validation.xlsx` file bc the script refuses to overwrite an existing validation workbook. This is intentional. It prevents an organizer from reviewing one version while the program silently replaces it with another. (No CHEATING!)
 
@@ -433,9 +431,9 @@ When the validation workbook shows a problem:
 
 1. Identify the participant and problem in `raffle_validation.xlsx`.
 2. Correct the response in Google Forms or in the controlled response sheet, according to the nonprofit’s process.
-3. Re-export the current responses to `inputs\googleform_results.xlsx`.
+3. Re-export the current responses to `googleform_results.xlsx`.
 4. Close Excel.
-5. Delete `output\raffle_validation.xlsx`.
+5. Delete `raffle_validation.xlsx`.
 6. Run `run_validate.bat` again.
 7. Repeat until the summary says the draw is ready.
 
@@ -453,7 +451,7 @@ Confirm that:
 - `raffle_validation.xlsx` is the final reviewed version;
 - the validation summary says `READY`;
 - Excel is closed;
-- `output\raffle_results.xlsx` does not already exist.
+- `raffle_results.xlsx` does not already exist.
 
 ## Configure `raffle_config.jsn`
 
@@ -501,7 +499,7 @@ run_draw.bat
 This stage reads only:
 
 ```text
-output\raffle_validation.xlsx
+raffle_validation.xlsx
 ```
 
 It does not read the donation export, pricing workbook, preparation workbook, or Google Forms export. It checks every active validation row. If any row has `Ready for Draw = NO`, the draw stops. The person is not silently removed. Winner selection uses the positive ticket counts in the validation workbook. A participant with 50 tickets in a basket has five times the chance of a participant with 10 tickets in that basket. All zero and blank basket allocations are ignored. They are not written to the `Entries` sheet of `raffle_results.xlsx`. A basket with zero positive tickets is not included in the results or the presentation.
@@ -509,7 +507,7 @@ It does not read the donation export, pricing workbook, preparation workbook, or
 The script creates:
 
 ```text
-output\raffle_results.xlsx
+raffle_results.xlsx
 ```
 
 This workbook is **secret until the live raffle**. **NO CHEATING**
@@ -524,7 +522,9 @@ Contains event information and a confidentiality warning.
 Contains one precomputed winner per positive-ticket basket.
 
 `Entries`
-Contains only the positive ticket allocations used in the draw. Zero values are omitted. The website uses both `Results` and `Entries` from this workbook. It uses `Entries` only for the spinning-name animation and displays the winner already stored in `Results`.
+Contains only the positive ticket allocations used in the draw. Zero values are omitted.
+
+`run_draw.bat` also writes `draw_data.js`, which holds the same winners and entries in the format the website reads. The website uses the entries only for the spinning-name animation and displays the winner already computed by the draw. Like `raffle_results.xlsx`, `draw_data.js` is secret until the live raffle.
 
 #### Preventing accidental redraws
 
@@ -541,26 +541,22 @@ This protects the first completed draw from being replaced accidentally.Delete `
 ```text
 run_website.bat
 ```
-(Do not double-click `web\draw.html` directly. Browsers block direct local access to the Excel workbook.)
-
 This script:
-1. checks that `output\raffle_results.xlsx` exists;
+1. checks that `draw.html` and `draw_data.js` exist;
 2. starts a private web server bound to `127.0.0.1` on the current computer only;
-3. opens the presentation in the default browser;
-4. allows the site to read `raffle_results.xlsx` locally.
+3. opens the presentation in the default browser.
 
 Keep the command window open during the presentation. Closing it stops the local website.
 
+If the server cannot start (for example, port `8765` is already in use), double-clicking `draw.html` directly also works, because the page reads `draw_data.js` rather than the Excel workbook.
+
 ### Presentation controls
 
-- Click **Reveal winner** to animate and display the precomputed winner.
+- Click **Draw winner** to animate and display the precomputed winner.
 - Click **Next basket** to advance.
-- Click **Previous** to return to an earlier basket.
-- Click **Fullscreen** for presentation mode.
 - Press `Space` or `Enter` to reveal or advance.
-- Press the left and right arrow keys to navigate.
 
-The winner history panel only shows winners after they have been revealed on screen. The browser loads all secret winners from `raffle_results.xlsx`, so the presentation computer and browser should be controlled by the event organizer.
+The browser loads all secret winners from `draw_data.js`, so the presentation computer and browser should be controlled by the event organizer.
 
 ### When the event is finished:
 
@@ -582,7 +578,7 @@ Run `setup.bat` first.
 
 ## “More than one file matched”
 
-More than one donation CSV matches the configured filename pattern. Move old exports out of `inputs` so only the current file remains.
+More than one donation CSV matches the configured filename pattern. Move old exports out of the project folder so only the current file remains.
 
 ## “File is locked” or permission denied
 
@@ -612,27 +608,25 @@ The ticket code is authoritative. A name difference is highlighted for review bu
 
 The latest response for that ticket code is used. Older responses remain visible on `All Form Responses`.
 
-## The website says it cannot load the results
+## The website says it could not load draw_data.js
 
-- Confirm `output\raffle_results.xlsx` exists.
-- Use `run_website.bat`; do not open `draw.html` directly.
-- Keep the server command window open.
-- Confirm port `8765` is not already being used by another program.
+- Confirm `draw_data.js` exists in the project folder. If not, run `run_draw.bat`.
+- Confirm `draw.html` and `draw_data.js` are in the same folder.
+- If using `run_website.bat`, keep the server command window open and confirm port `8765` is not already being used by another program. A previous server window that was never stopped with `Ctrl+C` is the usual cause.
 
 ## The browser shows old results
 
-Close the browser tab and stop the server with `Ctrl+C`. Confirm the intended `raffle_results.xlsx` is in `output`, then run `run_website.bat` again. The page requests the workbook without browser caching, but restarting removes ambiguity.
+Close the browser tab and stop the server with `Ctrl+C`. Confirm the intended `raffle_results.xlsx` and `draw_data.js` are in the project folder, then run `run_website.bat` again.
 
 ## Ticket estimates look wrong
 
 Review:
 
-- `inputs\ticket_pricing.xlsx`;
+- `ticket_pricing.xlsx`;
 - `ticket_estimation` in `raffle_config.json`;
 - `Donation Detail` in `raffle_preparation.xlsx`.
 
 The detail sheet shows the exact matrix points used for interpolation or extrapolation.
-
 ---
 
 # Additional Notes
