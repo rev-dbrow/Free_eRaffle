@@ -8,13 +8,14 @@
     "donations": "Clinic*Fundraising*.csv",
     "volunteers": "volunteer_list.xlsx",
     "ticket_pricing": "ticket_pricing.xlsx",
-    "form_responses": "googleform_results.xlsx",
+    "form_responses": "googleform_results.*",
     "manual_credits": "manual_credits.xlsx",
     "output_directory": ".",
     "preparation_workbook": "raffle_preparation.xlsx",
     "validation_workbook": "raffle_validation.xlsx",
     "results_workbook": "raffle_results.xlsx",
-    "website_data": "draw_data.js"
+    "website_data": "draw_data.js",
+    "manual_basket_winners": "manual_basket_winners.xlsx"
   },
   "donation_columns": {
     "amount": "Donation Amount",
@@ -53,7 +54,10 @@
       "Your ticket code",
       "Ticket code"
     ],
-    "basket_prefix": "Tickets for:"
+    "basket_prefix": "Tickets for:",
+    "ignore_columns": [
+      "Email Address"
+    ]
   },
   "validation": {
     "use_last_response_per_code": true,
